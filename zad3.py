@@ -1,4 +1,8 @@
 import math
+from xml.etree.ElementInclude import include
+
+import zad2
+from zad2 import GaussTable
 
 
 class Node:
@@ -66,8 +70,8 @@ class ElementUniv:
             # ksi, eta
             -point, -point,
             point, -point,
-            point, point,
-            -point, point
+            -point, point,
+            point, point
         ]
         for i in range(0, npc):
             self.dN_dksi.append([-0.25 * (1 - points[2 * i + 1]),
@@ -111,6 +115,58 @@ class Jakobian:
         self.J1[1].append((1 / self.det) * self.J[1][0])
         self.J1[1].append((1 / self.det) * self.J[0][0])
 
+def calcH(jakobian, elementUniv, k, npc):
+    dN_dx = [[0 for _ in range(npc)] for _ in range(npc)]
+    dN_dy = [[0 for _ in range(npc)] for _ in range(npc)]
+    for y in range(npc):
+        for x in range(npc):
+            dN_dx[y][x] = jakobian.J1[0][0] * elementUniv.dN_dksi[y][x] +  jakobian.J1[0][1] * elementUniv.dN_deta[y][x]
+            dN_dy[y][x] = jakobian.J1[1][0] * elementUniv.dN_dksi[y][x] +  jakobian.J1[1][1] * elementUniv.dN_deta[y][x]
+    print("\ndN/dx: ")
+    for i in range(len(dN_dx)):
+        print(dN_dx[i])
+    print("\ndN/dy: ")
+    for i in range(len(dN_dy)):
+        print(dN_dy[i])
+
+#     Mnożenie transponownaych i zwyklych
+    HpcX = [[[0 for _ in range(npc)] for _ in range(npc)] for _ in range(npc)]
+    HpcY= [[[0 for _ in range(npc)] for _ in range(npc)] for _ in range(npc)]
+    for integrationPoint in range(npc):
+        for x in range(npc):
+            for y in range(npc):
+                HpcX[integrationPoint][x][y] = dN_dx[integrationPoint][x] * dN_dx[integrationPoint][y]
+                HpcY[integrationPoint][x][y] = dN_dy[integrationPoint][x] * dN_dy[integrationPoint][y]
+
+# Obliczanie Hpc dla każdego punktu całkowania
+
+    Hpc = [[[0 for _ in range(npc)] for _ in range(npc)] for _ in range(npc)]
+    for integrationPoint in range(npc):
+        for y in range(npc):
+            for x in range(npc):
+                Hpc[integrationPoint][y][x] =k*(HpcX[integrationPoint][y][x] + HpcY[integrationPoint][y][x]) * 0.000156
+
+    for i in range(len(Hpc)):
+        print("Hpc", i+1)
+        for j in range(len(Hpc[i])):
+            print(Hpc[i][j])
+        print()
+
+
+# Obliczenie H
+    gauss = GaussTable(math.sqrt(npc))
+    weights = gauss.returnWeights()
+    H = [[0 for _ in range(npc)] for _ in range(npc)]
+    for y in range(npc):
+        for x in range(npc):
+            for w in range(npc):
+                H[x][y] += Hpc[w][y][x] * weights[int(w // math.sqrt(npc))]
+
+    for i in range(len(H)):
+        print(H[i])
+
+
+
 
 def ReadNodesAndElementsFromFile(lines, grid, elementUniv, npc):
     currentLine = 11
@@ -140,8 +196,8 @@ globalData = GlobalData(lines)
 elementUniv = ElementUniv(globalData.npc)
 grid = Grid(globalData.nN, globalData.nE)
 
-ReadNodesAndElementsFromFile(lines, grid, elementUniv, globalData.npc)
-grid.printElementsAndNodes()
+# ReadNodesAndElementsFromFile(lines, grid, elementUniv, globalData.npc)
+# grid.printElementsAndNodes()
 
 # Przyklad z prezentacji
 print("Przyklad z prezentacji: ")
@@ -158,3 +214,6 @@ jakobian = Jakobian([gridPrz.node[0],
 
 gridPrz.element.append(Element([1, 2, 3, 4], jakobian))
 gridPrz.printElementsAndNodes()
+
+calcH(jakobian, elementUniv, 30, 4)
+# Dla 9 pkt całkowania - z tabelki

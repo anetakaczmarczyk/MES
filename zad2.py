@@ -44,32 +44,34 @@ class GaussTable:
         else:
             print("ERROR")
 
+    def returnWeights(self):
+        return self.weights
 
-def solve1d(fun, n):
-    sum = 0
-    gauss = GaussTable(n)
-    for i in range(n):
-        sum += gauss.weights[i] * fun(gauss.points[i])
-    return sum
-
-
-def solve2d(fun, n):
-    sum = 0
-    gauss = GaussTable(n)
-    for i in range(n):
-        for j in range(n):
-            sum += gauss.weights[i] * gauss.weights[j] * fun(gauss.points[i], gauss.points[j])
-    return sum
-
-
-def fun1d(x):
-    return 5 * x ** 2 + 3 * x + 6
+# def solve1d(fun, n):
+#     sum = 0
+#     gauss = GaussTable(n)
+#     for i in range(n):
+#         sum += gauss.weights[i] * fun(gauss.points[i])
+#     return sum
+#
+#
+# def solve2d(fun, n):
+#     sum = 0
+#     gauss = GaussTable(n)
+#     for i in range(n):
+#         for j in range(n):
+#             sum += gauss.weights[i] * gauss.weights[j] * fun(gauss.points[i], gauss.points[j])
+#     return sum
 
 
-def fun2d(x, y):
-    return 5 * x ** 2 * y ** 2 + 3 * x * y + 6
-
-
-print(solve1d(fun1d, 4))  # 15.333
-
-print(solve2d(fun2d, 4))  # 26.222
+# def fun1d(x):
+#     return 5 * x ** 2 + 3 * x + 6
+#
+#
+# def fun2d(x, y):
+#     return 5 * x ** 2 * y ** 2 + 3 * x * y + 6
+#
+#
+# print(solve1d(fun1d, 4))  # 15.333
+#
+# print(solve2d(fun2d, 4))  # 26.222
