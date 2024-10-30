@@ -46,6 +46,8 @@ class GaussTable:
 
     def returnWeights(self):
         return self.weights
+    def returnPoints(self):
+        return self.points
 
 # def solve1d(fun, n):
 #     sum = 0
