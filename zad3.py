@@ -57,7 +57,7 @@ class GlobalData:
         self.SpecificHeat = int(lines[7].split(" ")[1])
         self.nN = int(lines[8].split(" ")[2])
         self.nE = int(lines[9].split(" ")[2])
-        self.npc = 4
+        self.npc = 9
 
 
 class ElementUniv:
@@ -116,12 +116,12 @@ def calcH(jakobian, elementUniv, k, npc):
         for x in range(4):
             dN_dx[l][x] = j1[0] * elementUniv.dN_dksi[l][x] +  j1[1] * elementUniv.dN_deta[l][x]
             dN_dy[l][x] = j1[2] * elementUniv.dN_dksi[l][x] +  j1[3] * elementUniv.dN_deta[l][x]
-    print("\ndN/dx: ")
-    for i in range(len(dN_dx)):
-        print(dN_dx[i])
-    print("\ndN/dy: ")
-    for i in range(len(dN_dy)):
-        print(dN_dy[i])
+    # print("\ndN/dx: ")
+    # for i in range(len(dN_dx)):
+    #     print(dN_dx[i])
+    # print("\ndN/dy: ")
+    # for i in range(len(dN_dy)):
+    #     print(dN_dy[i])
 
 #     Mnożenie transponownaych i zwyklych
     HpcX = [[[0 for _ in range(4)] for _ in range(4)] for _ in range(npc)]
@@ -141,11 +141,11 @@ def calcH(jakobian, elementUniv, k, npc):
             for x in range(4):
                 Hpc[integrationPoint][y][x] =k*(HpcX[integrationPoint][y][x] + HpcY[integrationPoint][y][x]) * jakobian.det[integrationPoint]
 
-    for i in range(len(Hpc)):
-        print("Hpc", i+1)
-        for j in range(len(Hpc[i])):
-            print(Hpc[i][j])
-        print()
+    # for i in range(len(Hpc)):
+    #     print("Hpc", i+1)
+    #     for j in range(len(Hpc[i])):
+    #         print(Hpc[i][j])
+    #     print()
 
 
 # Obliczenie H
@@ -186,32 +186,35 @@ def ReadNodesAndElementsFromFile(lines, grid, elementUniv, npc):
         grid.element.append(Element(id, jakobian))
 
 
-file = open('Test1_4_4.txt', 'r')
+# file = open('Test1_4_4.txt', 'r')
+file = open('Test2_4_4_MixGrid.txt', 'r')
+# file = open('Test3_31_31_kwadrat.txt', 'r')
 lines = file.readlines()
 file.close()
-npcTest = 4
 globalData = GlobalData(lines)
-elementUniv = ElementUniv(npcTest)
+elementUniv = ElementUniv(globalData.npc)
 grid = Grid(globalData.nN, globalData.nE)
 
-# ReadNodesAndElementsFromFile(lines, grid, elementUniv, globalData.npc)
-# grid.printElementsAndNodes()
-
+ReadNodesAndElementsFromFile(lines, grid, elementUniv, globalData.npc)
+grid.printElementsAndNodes()
+for i in range(len(grid.element)):
+    print("\nH:", i+1)
+    calcH(grid.element[i].jakobian, elementUniv, 25, globalData.npc)
 # Przyklad z prezentacji
-print("Przyklad z prezentacji: ")
-gridPrz = Grid(4, 1)
-gridPrz.node.append(Node(0.01, -0.01))
-gridPrz.node.append(Node(0.025, 0.0))
-gridPrz.node.append(Node(0.025, 0.025))
-gridPrz.node.append(Node(0.0, 0.025))
-jakobian = Jakobian([gridPrz.node[0],
-                     gridPrz.node[1],
-                     gridPrz.node[2],
-                     gridPrz.node[3]],
-                    elementUniv, npcTest)
-
-gridPrz.element.append(Element([1, 2, 3, 4], jakobian))
-gridPrz.printElementsAndNodes()
-
-calcH(jakobian, elementUniv, 30, npcTest)
+# print("Przyklad z prezentacji: ")
+# gridPrz = Grid(4, 1)
+# gridPrz.node.append(Node(0.01, -0.01))
+# gridPrz.node.append(Node(0.025, 0.0))
+# gridPrz.node.append(Node(0.025, 0.025))
+# gridPrz.node.append(Node(0.0, 0.025))
+# jakobian = Jakobian([gridPrz.node[0],
+#                      gridPrz.node[1],
+#                      gridPrz.node[2],
+#                      gridPrz.node[3]],
+#                     elementUniv, npcTest)
+#
+# gridPrz.element.append(Element([1, 2, 3, 4], jakobian))
+# gridPrz.printElementsAndNodes()
+#
+# calcH(jakobian, elementUniv, 30, npcTest)
 # Dla 9 pkt całkowania - z tabelki
