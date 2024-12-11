@@ -7,18 +7,22 @@ from zad2 import GaussTable
 
 
 class Node:
-    def __init__(self, x, y):
+    def __init__(self, x, y, isHbc):
         self.x = x
         self.y = y
+        self.isHbc = isHbc
 
     def print(self):
         print([self.x, self.y])
 
 
 class Element:
-    def __init__(self, id, jakobian):
+    def __init__(self, id, jakobian, node):
         self.id = id
         self.jakobian = jakobian
+        self.node = node
+        self.matrixH = []
+        self.matrixHBC = []
 
     def print(self):
         print("\nnr id: ", self.id)
@@ -57,7 +61,7 @@ class GlobalData:
         self.SpecificHeat = int(lines[7].split(" ")[1])
         self.nN = int(lines[8].split(" ")[2])
         self.nE = int(lines[9].split(" ")[2])
-        self.npc = 9
+        self.npc = 4
 
 
 class ElementUniv:
@@ -65,6 +69,7 @@ class ElementUniv:
         self.dN_dksi = []
         self.dN_deta = []
         points = GaussTable(math.sqrt(npc)).returnPoints()
+        self.surface = [Surface() for _ in range(4)]
         for ksi in points:
             for eta in points:
                 self.dN_dksi.append([-0.25 * (1 - eta),
@@ -76,7 +81,12 @@ class ElementUniv:
                                      -0.25 * (1 + ksi),
                                      0.25 * (1 + ksi),
                                      0.25 * (1 - ksi)])
-        self.printTabs()
+        for point in points:
+            self.surface[0].addN(point,-1)  #down
+            self.surface[1].addN(1,point)  #right
+            self.surface[2].addN(point,1)  #up
+            self.surface[3].addN(-1,point)  #left
+
 
     def printTabs(self):
         print("Ksi table: ")
@@ -85,6 +95,17 @@ class ElementUniv:
         print("\nEta table: ")
         for i in range(len(self.dN_deta)):
             print(self.dN_deta[i])
+
+class Surface:
+    def __init__(self):
+        self.N = []
+
+    def addN(self, ksi, eta):
+        list = [0.25 * (1 - ksi) * (1 - eta),
+                0.25 * (1 + ksi) * (1 - eta),
+                0.25 * (1 + ksi) * (1 + eta),
+                0.25 * (1 - ksi) * (1 + eta)]
+        self.N.append(list)
 
 
 class Jakobian:
@@ -109,19 +130,33 @@ class Jakobian:
             self.J1[l][2] = (1 / self.det[l]) * -j[2]
             self.J1[l][3] = (1 / self.det[l]) * j[0]
 
-def calcH(jakobian, elementUniv, k, npc):
+def calcHbc(surface, nodes, npc, alpha):
+    weights = GaussTable(math.sqrt(npc)).returnWeights()
+    Hbc = [[0.0 for _ in range(4)] for _ in range(4)]
+
+    for i in range(4):
+        if nodes[i].isHbc and nodes[(i + 1) % 4].isHbc:
+            length = math.sqrt((nodes[(i + 1) % 4].x - nodes[i].x) ** 2 + (nodes[(i + 1) % 4].y - nodes[i].y) ** 2)
+            detJ = length / 2
+            for n in range(int(math.sqrt(npc))):
+                for j in range(4):
+                    for k in range(4):
+                        Hbc[j][k] += detJ * alpha * (surface[i].N[n][j] * surface[i].N[n][k]) * weights[n]
+
+    # for i in range(len(Hbc)):
+    #     print(Hbc[i])
+    # print()
+    return Hbc
+
+
+
+def calcH(jakobian, elementUniv, k, npc, surface, nodes, alpha):
     dN_dx = [[0 for _ in range(4)] for _ in range(npc)]
     dN_dy = [[0 for _ in range(4)] for _ in range(npc)]
     for l, j1 in enumerate(jakobian.J1):
         for x in range(4):
             dN_dx[l][x] = j1[0] * elementUniv.dN_dksi[l][x] +  j1[1] * elementUniv.dN_deta[l][x]
             dN_dy[l][x] = j1[2] * elementUniv.dN_dksi[l][x] +  j1[3] * elementUniv.dN_deta[l][x]
-    # print("\ndN/dx: ")
-    # for i in range(len(dN_dx)):
-    #     print(dN_dx[i])
-    # print("\ndN/dy: ")
-    # for i in range(len(dN_dy)):
-    #     print(dN_dy[i])
 
 #     Mnożenie transponownaych i zwyklych
     HpcX = [[[0 for _ in range(4)] for _ in range(4)] for _ in range(npc)]
@@ -141,11 +176,6 @@ def calcH(jakobian, elementUniv, k, npc):
             for x in range(4):
                 Hpc[integrationPoint][y][x] =k*(HpcX[integrationPoint][y][x] + HpcY[integrationPoint][y][x]) * jakobian.det[integrationPoint]
 
-    # for i in range(len(Hpc)):
-    #     print("Hpc", i+1)
-    #     for j in range(len(Hpc[i])):
-    #         print(Hpc[i][j])
-    #     print()
 
 
 # Obliczenie H
@@ -159,18 +189,35 @@ def calcH(jakobian, elementUniv, k, npc):
             for y in range(4):
                 H[x][y] +=  Hpc[i][x][y] * weights[w1] * weights[w2]
 
+    Hbc = calcHbc(surface, nodes, npc, alpha)
+    for x in range(4):
+        for y in range(4):
+            H[x][y] += Hbc[x][y]
+
     for i in range(len(H)):
         print(H[i])
+    print()
+    return H
 
+class GlobalSystemOfEquations :
+    def __init__(self, numberOfNodes):
+        self.globalMartixH = [[0 for _ in range(numberOfNodes)] for _ in range(numberOfNodes)]
 
+def calcGlobalH(globalMartixH, allElements):
+    for element in allElements:
+        for i in range(len(element.matrixH)):
+            for j in range(4):
+                globalMartixH[element.id[i]-1][element.id[j]-1] += element.matrixH[i][j]
 
+    for i in range(len(globalMartixH)):
+        print(globalMartixH[i])
 
 def ReadNodesAndElementsFromFile(lines, grid, elementUniv, npc):
     currentLine = 11
+    BCNodes = lines[currentLine + grid.nN +1 + grid.nE + 1].split(", ")
     for i in range(currentLine, currentLine + grid.nN):
         nodeData = lines[i].split(", ")
-        grid.node.append(Node(float(nodeData[1]), float(nodeData[2])))
-
+        grid.node.append(Node(float(nodeData[1]), float(nodeData[2]),nodeData[0].strip() in BCNodes))
     currentLine += globalData.nN + 1
 
     for i in range(currentLine, currentLine + grid.nE):
@@ -183,11 +230,16 @@ def ReadNodesAndElementsFromFile(lines, grid, elementUniv, npc):
                              grid.node[id[2] - 1],
                              grid.node[id[3] - 1]],
                             elementUniv, npc)
-        grid.element.append(Element(id, jakobian))
+        node = [grid.node[id[0] - 1],
+                grid.node[id[1] - 1],
+                grid.node[id[2] - 1],
+                grid.node[id[3] - 1]]
+        grid.element.append(Element(id, jakobian, node))
 
 
-# file = open('Test1_4_4.txt', 'r')
-file = open('Test2_4_4_MixGrid.txt', 'r')
+# file = open('test.txt', 'r')
+file = open('Test1_4_4.txt', 'r')
+# file = open('Test2_4_4_MixGrid.txt', 'r')
 # file = open('Test3_31_31_kwadrat.txt', 'r')
 lines = file.readlines()
 file.close()
@@ -196,10 +248,11 @@ elementUniv = ElementUniv(globalData.npc)
 grid = Grid(globalData.nN, globalData.nE)
 
 ReadNodesAndElementsFromFile(lines, grid, elementUniv, globalData.npc)
-grid.printElementsAndNodes()
-for i in range(len(grid.element)):
-    print("\nH:", i+1)
-    calcH(grid.element[i].jakobian, elementUniv, 25, globalData.npc)
+# grid.printElementsAndNodes()
+for el in grid.element:
+    el.matrixH = calcH(el.jakobian, elementUniv, 25, globalData.npc, elementUniv.surface, el.node, globalData.Alfa)
+globalSystemOfEquations = GlobalSystemOfEquations(globalData.nN)
+calcGlobalH(globalSystemOfEquations.globalMartixH, grid.element)
 # Przyklad z prezentacji
 # print("Przyklad z prezentacji: ")
 # gridPrz = Grid(4, 1)
